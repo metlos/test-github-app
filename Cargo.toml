@@ -1,0 +1,19 @@
+[package]
+name = "test-github-app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = {version = "1", features = ["full"]}
+axum = "0.6"
+clap = {version = "4", features = ["derive", "env"]}
+env_logger = "0.10"
+log = "0.4"
+tower = {version = "0.4", features = ["util", "filter"]}
+tower-service = "0.3"
+tower-http = {version = "0.3", features = ["add-extension"]}
+hyper = "0.14"
+serde = {version = "1", features = ["derive"]}
+serde_json = "1"
