@@ -1,3 +1,4 @@
+use auth::User;
 use axum::{
     middleware,
     routing::{get, post},
@@ -9,6 +10,7 @@ use github_app::{CallbackState, GithubApp};
 
 use crate::github_app::WebhookState;
 
+mod auth;
 mod github_app;
 mod request_logging;
 
@@ -17,6 +19,9 @@ mod request_logging;
 struct Args {
     #[arg(long, default_value_t = 3000, env)]
     port: u16,
+
+    #[arg(long, default_value = "123456")]
+    access_password: String,
 
     #[arg(long, default_value = "interactions.log")]
     interactions_file: String,
@@ -46,8 +51,18 @@ async fn main() {
         .await
         .unwrap();
 
+    let allowed_user = User {
+        login: "test".to_owned(),
+        password: args.access_password.clone(),
+    };
+
+    auth::DATABASE.write().await.insert("test".to_owned(), allowed_user);
+
     let app = Router::new()
-        .route("/", get(home))
+        .route(
+            "/",
+            get(home).layer(middleware::from_fn_with_state("/login".to_owned(), auth::redirect_on_no_auth)),
+        )
         .route(
             "/callback",
             get(github_app::callback)
@@ -61,7 +76,11 @@ async fn main() {
         .layer(middleware::from_fn_with_state(
             logging_state,
             request_logging::log,
-        ));
+        ))
+        .route("/login", get(auth::login_page).post(auth::login))
+        .route("/logout", get(auth::logout))
+        .layer(auth::auth_layer())
+        .layer(auth::session_layer());
 
     let addr = &([0, 0, 0, 0], args.port).into();
 
