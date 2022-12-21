@@ -2,10 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     body::boxed,
-    extract::{Form, State},
+    extract::{Form, State, Query},
     headers::Header,
     middleware::Next,
-    response::{Html, IntoResponse, Response},
+    response::{IntoResponse, Response},
 };
 use axum_login::{
     axum_sessions::SessionLayer, memory_store::MemoryStore as AuthMemoryStore, secrecy::SecretVec,
@@ -34,6 +34,7 @@ pub struct User {
 pub struct LoginForm {
     pub login: String,
     pub password: String,
+    pub to: Option<String>,
 }
 
 impl AuthUser for User {
@@ -63,16 +64,16 @@ pub async fn login(mut auth: AuthContext, Form(form): Form<LoginForm>) -> impl I
     if let Some(user) = DATABASE.read().await.get(&form.login) {
         if user.password == form.password {
             return match auth.login(&user).await {
-                Ok(_) => (StatusCode::OK, "logged in".to_owned()),
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("failed to login: {}", e),
-                ),
+                Ok(_) => match form.to {
+                    Some(redirect) => Response::builder().status(StatusCode::OK).body(Body::from(format!("<html><head><meta http-equiv=\"Refresh\" content=\"0; url='{}'\" /></head></html>", redirect))).unwrap(),
+                    None => Response::builder().status(StatusCode::OK).body(Body::from("logged in")).unwrap(),
+                }
+                Err(e) => Response::builder().status(StatusCode::INTERNAL_SERVER_ERROR).body(Body::from(format!("failed to login: {}", e))).unwrap(),
             };
         }
     }
 
-    (StatusCode::FORBIDDEN, "invalid creds".to_owned())
+    Response::builder().status(StatusCode::FORBIDDEN).body(Body::from("invalid creds")).unwrap()
 }
 
 pub async fn logout(mut auth: AuthContext) {
@@ -96,18 +97,3 @@ pub async fn redirect_on_no_auth<B>(
     }
 }
 
-pub async fn login_page() -> impl IntoResponse {
-    Html(
-        r#"
-<html>
-    <body>
-        <form method=post>
-        login:<input name="login"/><br/>
-        password:<input name="password" type="password"/><br/>
-        <input type="submit"/>
-        </form>
-    </body>
-</html>    
-    "#,
-    )
-}

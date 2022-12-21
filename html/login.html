@@ -1,0 +1,11 @@
+<!DOCTYPE html>        
+<html>
+    <body onload="document.getElementById('to').value = window.location.search.substring(4)">
+        <form method=post>
+        login:<input name="login"/><br/>
+        password:<input name="password" type="password"/><br/>
+        <input type="hidden" id="to" name="to">
+        <input type="submit"/>
+        </form>
+    </body>
+</html>    
